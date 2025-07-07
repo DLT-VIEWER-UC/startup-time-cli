@@ -63,7 +63,7 @@ def setup_logging():
 application_startup_time_columns = ['No.', 'Services/Applications', 'Application Startup\n Time (sec)',
 
                                     'IG ON\n to\n QNX Startup (sec)', 'Total Time\n from\n IG ON (sec)',
-                                    'Test Case Status','Expected Order', 'StartUp Order Status', 'Reason for FAIL']
+                                    'Test Case Status', 'Expected Order', 'StartUp Time Judgement' 'Order\n Mismatch', 'Application\n Not\n Found', 'Application\n Not\n Configured']
 
 # Define the column names for the application startup time data with minimum, maximum, and average values
 application_startup_time_min_max_avg_columns = ['Services/Applications', 'Minimum (sec)', 'Maximum (sec)',
@@ -75,8 +75,7 @@ application_start_end_time_min_max_avg_columns = ['Services/Applications', 'Mini
                                                   'Average (ms)']
 
 applications_overall_status_columns = ['No. of Iterations', 'Total Time\n to Startup\n Last Application\n from IG ON (sec)',
-                                        'Test Case Status', 'Startup Order Status']
-applications_order_status_columns = ['No. of Iterations', 'Startup Order Status']
+                                        'Test Case Status', 'Startup Order Status', 'Order\n Mismatch\n Count', 'Not\n Found\n Count', 'Not\n Configured\n Count']
 appendix_columns = ['Column Name', 'Description']
 startup_field_descriptions = [
    ("Services/Applications", "Name of the Service/Application being initialized."),
@@ -216,7 +215,7 @@ def format_excel_cells(sheet, start_row):
             # Check if the cell value is a column header
             if cell.value in (application_startup_time_columns + application_startup_time_min_max_avg_columns
                               + application_info_columns + application_start_end_time_min_max_avg_columns +
-                              applications_overall_status_columns + applications_order_status_columns):
+                              applications_overall_status_columns):
                
                 # Apply a green fill color and bold font to column headers
                 cell.fill = PatternFill(start_color="B5E6A2", end_color="B5E6A2", fill_type="solid")
@@ -505,7 +504,7 @@ def get_expected_startup_order(application_name, application_startup_order):
  
 
 
-def write_data_to_excel(dltstart_timestamps, process_timing_info, sheet, application_startup_order, threshold, validate_startup_order):
+def write_data_to_excel(dltstart_timestamps, process_timing_info, sheet, application_startup_order, threshold, validate_startup_order, application_startup_order_status_iteration):
     start_row = sheet.max_row + 1
 
     # Iterate over the DLTStart timestamps and differences in parallel using zip
@@ -517,23 +516,28 @@ def write_data_to_excel(dltstart_timestamps, process_timing_info, sheet, applica
         else:
             result = 'FAIL'
         print(">>>", process, process, process_timing_info)
-       
-        # Create a data row for the process
-        expected_order = get_expected_startup_order(process, application_startup_order)
-        if not expected_order:
-            expected_order='-'
 
-        data_row = [position+1, process, round(dltstart_line, 3), OFFSET_TIME, round(dltstart_line + OFFSET_TIME, 3),result, str(expected_order)]
+        data_row = [position+1, process, round(dltstart_line, 3), OFFSET_TIME, round(dltstart_line + OFFSET_TIME, 3), result]
         print('##',process,validate_startup_order)
 
         if validate_startup_order:
+            # Create a data row for the process
+            expected_order = get_expected_startup_order(process, application_startup_order)
+            if not expected_order:
+                expected_order='-'
+            data_row.append(str(expected_order))
+            
             order_failure_type = validate_ind_app_startup_order(process, position + 1, application_startup_order)
-            data_row.append('PASS' if order_failure_type==0 else 'FAIL')
             if order_failure_type != 0:
-                # If the startup order is not valid, set the test case status to 'FAIL'
-                data_row.append(OrderFailureType(order_failure_type).name)
+                data_row.extend([
+                    'FAIL',
+                    'O' if OrderFailureType.ORDER_MISMATCH.name == OrderFailureType(order_failure_type).name else '',
+                    'O' if OrderFailureType.APPLICATION_NOT_FOUND.name == OrderFailureType(order_failure_type).name else '',
+                    'O' if OrderFailureType.APPLICATION_NOT_CONFIGURED.name == OrderFailureType(order_failure_type).name else ''
+                ])
+                application_startup_order_status_iteration[OrderFailureType(order_failure_type).name] += 1
             else:
-                data_row.append("")
+                data_row.extend(['PASS', '', '', '', ''])
 
         # Append the data row to the sheet
         sheet.append(data_row)
@@ -545,16 +549,23 @@ def write_data_to_excel(dltstart_timestamps, process_timing_info, sheet, applica
     for order_type, order in application_startup_order:
         for app in order:
             if app not in dltstart_timestamps:
-                expected_order = get_expected_startup_order(app, application_startup_order)
-                if not expected_order:
-                    expected_order='-'
                
-                data_row = ['-', app, '-', '-', '-', '-', str(expected_order)]
+                data_row = ['-', app, '-', '-', '-', '-']
                
                 if validate_startup_order:
-                    data_row.extend(['FAIL', OrderFailureType.APPLICATION_NOT_FOUND.name])
+                    expected_order = get_expected_startup_order(app, application_startup_order)
+                    if not expected_order:
+                        expected_order='-'
+                    data_row.extend([str(expected_order), 'FAIL', '', 'O', ''])
+                    application_startup_order_status_iteration[OrderFailureType.APPLICATION_NOT_FOUND.name] += 1
                 sheet.append(data_row)
-   
+    if validate_startup_order:
+        sheet.append([
+            '', '', '', '', '', '', '', 'Total Count',
+            application_startup_order_status_iteration[OrderFailureType.ORDER_MISMATCH.name],
+            application_startup_order_status_iteration[OrderFailureType.APPLICATION_NOT_FOUND.name], 
+            application_startup_order_status_iteration[OrderFailureType.APPLICATION_NOT_CONFIGURED.name]
+        ])
     # Apply the border style to the entire merged range
     for row in sheet[merged_range]:
         for cell in row:
@@ -584,7 +595,7 @@ def create_header(sheet, ecu_type, validate_startup_order, app_columns):
         header = f'Services/Applications Startup Time on {ecu_type}'
         columns = application_startup_time_columns
         if not validate_startup_order:
-            columns=columns[:-2]
+            columns=columns[:-5]
    
     elif app_columns == 'info_columns':
         header = f'Services/Applications Init(Up) Time on {ecu_type}'
@@ -594,11 +605,7 @@ def create_header(sheet, ecu_type, validate_startup_order, app_columns):
         header = f'Overall Test Case Status for each Iteration on {ecu_type}'
         columns = applications_overall_status_columns
         if not validate_startup_order:
-            columns=columns[:-1]
-
-    elif app_columns == 'app_order_test_columns':
-       header = f'Startup Order of Applications'
-       columns = applications_order_status_columns
+            columns=columns[:-4]
 
     elif app_columns == 'startup_appendix':
        header = f'Field Description for \n Services/Applications Startup Completion Time on {ecu_type}'
@@ -645,26 +652,23 @@ def create_header(sheet, ecu_type, validate_startup_order, app_columns):
 
 def each_iteration_test_status(ecu_type, summary_sheet, overall_IG_ON_iteration, config, application_startup_order_status):
     start_row = create_header(summary_sheet, ecu_type, config['validate-startup-order'], 'overall_test_columns')
+    for i in range(config['iterations']):
+        if i in overall_IG_ON_iteration:
+            overall_value = overall_IG_ON_iteration[i] + OFFSET_TIME
+            if overall_value > 5:
+                test_status = 'FAIL'
+            else:
+                test_status = 'PASS'
+            data_row = [f'=HYPERLINK("#\'GEN3_StartupTime_{i + 1}\'!A1", "{i + 1}")', overall_value, test_status]
+            if config['validate-startup-order'] and i in application_startup_order_status:
+                data_row.extend([
+                    "PASS" if application_startup_order_status[i] else "FAIL",
+                    application_startup_order_status[i][OrderFailureType.ORDER_MISMATCH.name],
+                    application_startup_order_status[i][OrderFailureType.APPLICATION_NOT_FOUND.name],
+                    application_startup_order_status[i][OrderFailureType.APPLICATION_NOT_CONFIGURED.name]
+                ])
+            summary_sheet.append(data_row)
    
-    for i, (overall_value, order_status) in enumerate(zip(overall_IG_ON_iteration, application_startup_order_status)):
-        overall_value = overall_value + OFFSET_TIME
-
-        if overall_value > 5:
-            test_status = 'FAIL'
-        else:
-            test_status = 'PASS'        
-        data_row=[i+1, overall_value, test_status]
-        if config['validate-startup-order']:
-            data_row.append("PASS" if order_status else "FAIL")
-        summary_sheet.append(data_row)
-   
-    format_excel_cells(summary_sheet, start_row)
-
-
-def each_iteration_app_startup_order_status(ecu_type, summary_sheet, config, application_startup_order_status):
-    start_row = create_header(summary_sheet, ecu_type, config['validate-startup-order'], 'app_order_test_columns')
-    for i, test_status in enumerate(application_startup_order_status):
-        summary_sheet.append([i+1, "PASS" if test_status else "FAIL"])
     format_excel_cells(summary_sheet, start_row)
 
 
@@ -789,12 +793,12 @@ def generate_apps_start_end_time_report(ecu_type, sheet, process_timing_info, co
     format_excel_cells(sheet, start_row)
 
 
-def generate_apps_startup_report_from_QNX_startup(ecu_type, config, sheet, dltstart_timestamps,  process_timing_info, application_startup_order):
+def generate_apps_startup_report_from_QNX_startup(ecu_type, config, sheet, dltstart_timestamps,  process_timing_info, application_startup_order, application_startup_order_status_iteration):
     # Create the header for the Excel sheet
     start_row = create_header(sheet, ecu_type, config['validate-startup-order'], 'startup_time_columns')
 
     # Write the data to the Excel sheet
-    write_data_to_excel(dltstart_timestamps, process_timing_info, sheet, application_startup_order, config.get('threshold-in-seconds'), config.get('validate-startup-order') )
+    write_data_to_excel(dltstart_timestamps, process_timing_info, sheet, application_startup_order, config.get('threshold-in-seconds'), config.get('validate-startup-order'), application_startup_order_status_iteration)
 
     # Plot the differences as a graph
     plot_process_startup_time_graph(dltstart_timestamps, sheet, start_row, ecu_type, config.get('threshold-in-seconds'), False)
@@ -1253,9 +1257,13 @@ def process_log_file(i, ecu_type, log_file_details, dlp_file, config, sheet, ove
             logger.error("Apps DLTStart time is not found in log file")
             return False
        
-        application_startup_order_status.append(validate_app_startup_order(dltstart_timestamps, application_startup_order))
-        print ("dlttimestamp:"+str(dltstart_timestamps.keys()))
-
+        application_startup_order_status[i] = {
+            'startup_order_status': validate_app_startup_order(dltstart_timestamps, application_startup_order),
+            OrderFailureType.ORDER_MISMATCH.name: 0,
+            OrderFailureType.APPLICATION_NOT_FOUND.name: 0,
+            OrderFailureType.APPLICATION_NOT_CONFIGURED.name: 0
+        }
+        
         process_Start_End_timestamps = extract_process_timestamps(lines)
         print ("process_Start_End_timestamp:"+str(process_Start_End_timestamps))
         if not process_Start_End_timestamps or len(process_Start_End_timestamps)==0:
@@ -1288,10 +1296,10 @@ def process_log_file(i, ecu_type, log_file_details, dlp_file, config, sheet, ove
             # Append the difference to the process's list of times
             process_times[process].append(process_time)
        
-        overall_IG_ON_iteration.append(max(dltstart_timestamps.values()))
+        overall_IG_ON_iteration[i] = max(dltstart_timestamps.values())
         print ("overall_IG_ON_iteration:"+str(overall_IG_ON_iteration))
 
-        generate_apps_startup_report_from_QNX_startup(ecu_type, config, sheet, dltstart_timestamps, process_timing_info, application_startup_order)
+        generate_apps_startup_report_from_QNX_startup(ecu_type, config, sheet, dltstart_timestamps, process_timing_info, application_startup_order, application_startup_order_status[i])
        
         # Add a hyperlink to the log file in the Excel sheet
         add_logfile_hyperlink(filename, logfile, sheet)
@@ -1413,8 +1421,8 @@ def start_startup_time_measurement():
                 return False
             process_times_map[ecu['ecu-type']] = {}
             process_start_times_map[ecu['ecu-type']] = {}
-            overall_IG_ON_iteration_map[ecu['ecu-type']] = []
-            application_startup_order_status_map[ecu['ecu-type']] = []
+            overall_IG_ON_iteration_map[ecu['ecu-type']] = {}
+            application_startup_order_status_map[ecu['ecu-type']] = {}
             application_startup_order = []
             for block in ecu['startup-order']:
                 application_startup_order.append(tuple([block['type'], [app.strip() for app in block['apps'].split(',')]]))
