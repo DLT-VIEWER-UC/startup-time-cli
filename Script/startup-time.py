@@ -28,9 +28,24 @@ import threading
 from collections import OrderedDict
 import colorlog
 import pandas as pd
+from decimal import Decimal, ROUND_HALF_UP
 
 
 plot_lock = threading.Lock()
+
+def round_decimal_half_up(number, decimals=0):
+    """
+    Rounds a number using traditional rounding (0.5 always rounds up).
+    
+    Args:
+        number (float): Number to round
+        decimals (int): Number of decimal places
+        
+    Returns:
+        float: Properly rounded number
+    """
+    multiplier = 10 ** decimals
+    return float(Decimal(str(number * multiplier)).quantize(Decimal('1'), rounding=ROUND_HALF_UP)) / multiplier
 
 logger = None
 cur_dt_time_obj = None
@@ -413,7 +428,7 @@ def plot_process_individual_apps_avg_graph(differences, sheet, start_row, ecu_ty
             plt.plot([0, difference], [index, index], marker='o')
 
             # Add a text label at the midpoint of the line with the difference value
-            plt.text((0 + difference) / 2, index + 0.1, str(round(difference, 3))+" ms",#"{:.3f} ms".format(difference),
+            plt.text((0 + difference) / 2, index + 0.1, str(round_decimal_half_up(difference, 3))+" ms",#"{:.3f} ms".format(difference),
                     verticalalignment='bottom', horizontalalignment='center')
 
         # Set the y-axis tick labels to the process names and 'Time from IG ON to QNX startup'
@@ -525,7 +540,7 @@ def plot_process_start_end_time_graph(ecu_type, data, sheet, start_row):
             print ("row",row['start_time_ms'])
             plt.plot([0, row['start_time_ms']], [index, index], marker='o')
             plt.text(row['start_time_ms'] / 2, index + 0.1,
-                    str(round(row['start_time_ms'], 3))+" ms", #"{:.3f} ms".format(row['start_time_ms']),
+                    str(round_decimal_half_up(row['start_time_ms'], 3))+" ms", #"{:.3f} ms".format(row['start_time_ms']),
                     verticalalignment='bottom',
                     horizontalalignment='center')    
 
@@ -620,7 +635,7 @@ def plot_process_startup_time_graph(differences, sheet, start_row, ecu_type, thr
 
             # Add a text label at the midpoint of the line with the difference value
             plt.text((OFFSET_TIME + difference + OFFSET_TIME) / 2, index + 0.1,
-                    str(round(difference, 3))+" sec", #"{:.3f} sec".format(difference),
+                    str(round_decimal_half_up(difference, 3))+" sec", #"{:.3f} sec".format(difference),
                     verticalalignment='bottom', horizontalalignment='center')
 
         # Set the y-axis tick labels to the process names and 'Time from IG ON to QNX startup'
@@ -916,7 +931,7 @@ def write_data_to_excel(dltstart_timestamps, process_timing_info, sheet, applica
             result = 'FAIL'
         print(">>>", process, process, process_timing_info)
 
-        data_row = [position+1, process, round(dltstart_line, 3), OFFSET_TIME, round(dltstart_line + OFFSET_TIME, 3), result]
+        data_row = [position+1, process, round_decimal_half_up(dltstart_line, 3), OFFSET_TIME, round_decimal_half_up(dltstart_line + OFFSET_TIME, 3), result]
         print('##',process,validate_startup_order)
 
         if validate_startup_order:
@@ -1219,14 +1234,14 @@ def export_and_plot_average_data_to_excel(sheet, ecu_type, process_times, proces
         min_time = min(times)
         max_time = max(times)
         # avg_time = sum(times) / len(times)
-        avg_time = round(sum(times) / len(times), 3)
+        avg_time = round_decimal_half_up(sum(times) / len(times), 3)
        
         # Create a dictionary for the process with the minimum, maximum, and average times
         data_row = {
             'process': process,
-            'min_time': round(min_time, 3),
-            'max_time': round(max_time, 3),
-            'avg_time': round(avg_time, 3),
+            'min_time': round_decimal_half_up(min_time, 3),
+            'max_time': round_decimal_half_up(max_time, 3),
+            'avg_time': round_decimal_half_up(avg_time, 3),
         }
        
         # Append the data row to the list
@@ -1261,9 +1276,9 @@ def export_and_plot_average_data_to_excel(sheet, ecu_type, process_times, proces
         # Create a dictionary for the process with the minimum, maximum, and average times
         data_row = {
             'process': process,
-            'min_time': round(min_time, 3),
-            'max_time': round(max_time, 3),
-            'avg_time': round(avg_time, 3),
+            'min_time': round_decimal_half_up(min_time, 3),
+            'max_time': round_decimal_half_up(max_time, 3),
+            'avg_time': round_decimal_half_up(avg_time, 3),
         }
        
         # Append the data row to the list
