@@ -1347,7 +1347,7 @@ def add_logfile_hyperlink(report_path, log_path, sheet):
     sheet.cell(row=row_no, column=1).value = "Log File:"  
  
     # Use Excel's =HYPERLINK() formula with the relative path
-    hyperlink_formula = f'=HYPERLINK("{report_path}", "{log_path}")'
+    hyperlink_formula = f'=HYPERLINK(".\Logs\{log_path}", "{log_path}")'
  
     # Insert the hyperlink formula
     sheet.cell(row=row_no + 1, column=1).value = hyperlink_formula
