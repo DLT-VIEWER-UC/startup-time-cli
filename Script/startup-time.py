@@ -92,9 +92,8 @@ def setup_logging():
 
 # Define the column names for the application startup time data
 application_startup_time_columns = ['No.', 'Services/Applications', 'Application Startup\n Time (sec)',
-
                                     'IG ON\n to\n QNX Startup (sec)', 'Total Time\n from\n IG ON (sec)',
-                                    'Test Case Status', 'Expected Order', 'StartUp Time Judgement' 'Order\n Mismatch', 'Application\n Not\n Found', 'Application\n Not\n Configured']
+                                    'Startup time\n judgement', 'Expected Order', 'Result of the\n enabled judgement\n item', 'Order\n Mismatch', 'Not\n Found', 'Not\n Configured']
 
 # Define the column names for the application startup time data with minimum, maximum, and average values
 application_startup_time_min_max_avg_columns = ['Services/Applications', 'Minimum (sec)', 'Maximum (sec)',
@@ -106,7 +105,9 @@ application_start_end_time_min_max_avg_columns = ['Services/Applications', 'Mini
                                                   'Average (ms)']
 
 applications_overall_status_columns = ['No. of Iterations', 'Total Time\n to Startup\n Last Application\n from IG ON (sec)',
-                                        'Test Case Status', 'Startup Order Status', 'Order\n Mismatch\n Count', 'Not\n Found\n Count', 'Not\n Configured\n Count']
+                                        'Startup time\n judgement', 'Result of the\n enabled judgement\n item', 'Order\n Mismatch\n Count', 'Not\n Found\n Count', 'Not\n Configured\n Count']
+
+other_columns = ['Total Count']
 appendix_columns = ['Column Name', 'Description']
 startup_field_descriptions = [
    ("Services/Applications", "Name of the Service/Application being initialized."),
@@ -352,7 +353,7 @@ def format_excel_cells(sheet, start_row):
             # Check if the cell value is a column header
             if cell.value in (application_startup_time_columns + application_startup_time_min_max_avg_columns
                               + application_info_columns + application_start_end_time_min_max_avg_columns +
-                              applications_overall_status_columns):
+                              applications_overall_status_columns + other_columns):
                
                 # Apply a green fill color and bold font to column headers
                 cell.fill = PatternFill(start_color="B5E6A2", end_color="B5E6A2", fill_type="solid")
@@ -1154,7 +1155,7 @@ def each_iteration_test_status(ecu_type, summary_sheet, overall_IG_ON_iteration,
                 test_status = 'FAIL'
             else:
                 test_status = 'PASS'
-            data_row = [f'=HYPERLINK("#\'GEN3_StartupTime_{i + 1}\'!A1", "{i + 1}")', overall_value, test_status]
+            data_row = [f'=HYPERLINK("#\'GEN3_StartupTime_{(i + 1):02d}\'!A1", "{i + 1}")', overall_value, test_status]
             if config['validate-startup-order'] and i in application_startup_order_status:
                 data_row.extend([
                     "PASS" if application_startup_order_status[i] else "FAIL",
@@ -1304,7 +1305,7 @@ def export_and_plot_average_data_to_excel(sheet, ecu_type, process_times, proces
     adjust_column_width(sheet, ecu_type)
 
 
-def add_logfile_hyperlink(report_path, log_path, sheet):
+def add_logfile_hyperlink(report_path, log_path, sheet, ecu_type, setup_type):
     """
     Adds a hyperlink to the source log file in the Excel worksheet for traceability.
     
@@ -1347,8 +1348,10 @@ def add_logfile_hyperlink(report_path, log_path, sheet):
     sheet.cell(row=row_no, column=1).value = "Log File:"  
  
     # Use Excel's =HYPERLINK() formula with the relative path
-    hyperlink_formula = f'=HYPERLINK(".\Logs\{log_path}", "{log_path}")'
- 
+    if setup_type == ECUType.ELITE.value:
+        hyperlink_formula = f'=HYPERLINK(".\Logs\{ecu_type}\{log_path}", "{log_path}")'
+    else:
+        hyperlink_formula = f'=HYPERLINK(".\Logs\{log_path}", "{log_path}")'
     # Insert the hyperlink formula
     sheet.cell(row=row_no + 1, column=1).value = hyperlink_formula
    
@@ -2696,7 +2699,7 @@ def capture_logs_from_dlt_viewer(log_file_name, dlt_file_name, project_file_name
     return True
 
        
-def process_log_file(i, ecu_type, log_file_details, dlp_file, config, sheet, overall_IG_ON_iteration, process_start_times, process_times, application_startup_order,application_startup_order_status):
+def process_log_file(i, ecu_type, setup_type, log_file_details, dlp_file, config, sheet, overall_IG_ON_iteration, process_start_times, process_times, application_startup_order,application_startup_order_status):
     """
     Processes a single ECU log file for one test iteration, extracting timing data and generating reports.
     
@@ -2839,7 +2842,7 @@ def process_log_file(i, ecu_type, log_file_details, dlp_file, config, sheet, ove
         generate_apps_startup_report_from_QNX_startup(ecu_type, config, sheet, dltstart_timestamps, process_timing_info, application_startup_order, application_startup_order_status[i])
        
         # Add a hyperlink to the log file in the Excel sheet
-        add_logfile_hyperlink(filename, logfile, sheet)
+        add_logfile_hyperlink(filename, logfile, sheet, ecu_type, setup_type)
 
     except Exception as e:
         logger.error(f"Exception :: {e}")
@@ -3144,6 +3147,7 @@ def start_startup_time_measurement():
                     args=(
                         i,
                         ecu_type,
+                        setup_type,
                         filename_list[ecu_type],
                         dlp_files[ecu_type],
                         config,
