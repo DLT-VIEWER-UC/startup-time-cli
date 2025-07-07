@@ -985,11 +985,11 @@ def extract_welcome_timestamp(lines):
     return welcome_timestamp
 
 
-def RCAR_ON_OFF_Relay():
+def RCAR_ON_OFF_Relay(power_on_off_delay):
     try:
         logger.info("Turning OFF relay...")
         subprocess.run(["usbrelay", "BITFT_1=0"])
-        time.sleep(3)  #  delay
+        time.sleep(float(power_on_off_delay))  #  delay
 
         logger.info("Turning ON relay...")
         subprocess.run(["usbrelay", "BITFT_1=1"])
@@ -1001,17 +1001,17 @@ def RCAR_ON_OFF_Relay():
     return True
 
 
-def power_ON_OFF_Relay(serial_port_Relay, baudrate_Relay):
+def power_ON_OFF_Relay(serial_port_relay, baudrate_relay, power_on_off_delay):
     try:
         #set up your serial port with the desire COM port and baudrate.
-        signal = serial.Serial(serial_port_Relay, baudrate_Relay, bytesize=8, stopbits=1, timeout=1)
+        signal = serial.Serial(serial_port_relay, baudrate_relay, bytesize=8, stopbits=1, timeout=1)
         if not signal.is_open:
-            logger.error(f"Failed to open serial port: {serial_port_Relay}")
+            logger.error(f"Failed to open serial port: {serial_port_relay}")
             return False
        
         logger.info("Turning OFF relay...")
         signal.write("AT+CH1=0".encode())   # Relay OFF
-        time.sleep(25)
+        time.sleep(float(power_on_off_delay))  # Delay for power off
        
         logger.info("Turning ON relay...")
         signal.write("AT+CH1=1".encode())   # Relay ON
@@ -1382,6 +1382,10 @@ def start_startup_time_measurement():
         except KeyError:
             logger.error("Error: 'script-execution-time-in-seconds' key not found in the configuration file.")
             return False
+       
+        if not isinstance(config.get("power-on-off-delay", 25), int):
+            logger.error("Error: 'power-on-off-delay' must be an integer.")
+            return False
 
         process_times_map = {}
         process_start_times_map = {}
@@ -1445,10 +1449,10 @@ def start_startup_time_measurement():
         for i in range(iterations):
            
             if setup_type == ECUType.RCAR.value:
-                if not RCAR_ON_OFF_Relay():
+                if not RCAR_ON_OFF_Relay(config.get('power-on-off-delay', 25)):
                     return False
             else:
-                if not power_ON_OFF_Relay(config.get('serial-port-relay'), config.get('baudrate-relay')):
+                if not power_ON_OFF_Relay(config.get('serial-port-relay'), config.get('baudrate-relay'), config.get('power-on-off-delay', 25)):
                     return False
            
             threads = []
