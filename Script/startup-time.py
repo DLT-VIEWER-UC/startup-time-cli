@@ -698,7 +698,7 @@ def plot_process_startup_time_graph(differences, sheet, start_row, ecu_type, thr
         img = Image(plot_image)
         sheet.add_image(img, f'M{start_row}')
 
-def get_log_file_path(ecu_type, setup_type, iterations, current_timestamp, index):
+def get_log_file_path(ecu_type, setup_type, iterations, index):
     """
     Generates standardized log file paths and names for ECU startup time testing.
     
@@ -753,7 +753,7 @@ def get_log_file_path(ecu_type, setup_type, iterations, current_timestamp, index
     # Return the log file path and name
     return filename, logfile, dltfile
 
-def get_log_file_paths_for_elite(index, current_timestamp, ecu_config_list, setup_type):    
+def get_log_file_paths_for_elite(index, ecu_config_list, setup_type):    
     """
     Generates log file paths for multiple ECUs in Elite setup configurations.
     
@@ -3136,9 +3136,9 @@ def start_startup_time_measurement():
                
                 filename_list = {}
                 if setup_type == ECUType.ELITE.value:
-                    filename_list = get_log_file_paths_for_elite(i, current_timestamp, ecu_config_list, setup_type)
+                    filename_list = get_log_file_paths_for_elite(i, ecu_config_list, setup_type)
                 else:
-                    filename_list[ecu_type] = tuple(get_log_file_path(ecu_type, setup_type, iterations, current_timestamp, i))
+                    filename_list[ecu_type] = tuple(get_log_file_path(ecu_type, setup_type, iterations, i))
                 if any(not filename for (filename, logfile, dltfile) in filename_list.values()):
                     logger.error("Log file not created")
                     return False
