@@ -1,7 +1,7 @@
 # Duration of the test in seconds
 script-execution-time-in-seconds: 70
 
-# Delay between IG ON and OFF in seconds
+# Set this value to the time until ECU is completely in the IG OFF state
 power-on-off-delay-in-seconds: 25
 
 # Number of iterations to run the test
