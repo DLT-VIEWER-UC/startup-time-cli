@@ -2,13 +2,19 @@
 script-execution-time-in-seconds: 70
 
 # Delay between IG ON and OFF in seconds
-delay-ig-on-off-in-seconds: 25
+power-on-off-delay-in-seconds: 25
 
 # Number of iterations to run the test
 iterations: 3
 
 # Threshold value for application that starts within 5 seconds
 threshold-in-seconds: 5
+# Threshold configuration for different application groups
+threshold-config:
+  - application-group: "crypto_keystorage_manager,access_manager,healthmanager,aradltdaemon,araipcd"
+    threshold-in-seconds: 5
+  - application-group: "arasomeipd,statemanager,DiagnosticManager,functiongroupmanager,AHdf"
+    threshold-in-seconds: 5
 
 # Serial port for the relay
 serial-port-relay: COM5

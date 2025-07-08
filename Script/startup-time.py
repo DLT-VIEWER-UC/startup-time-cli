@@ -51,6 +51,7 @@ logger = None
 cur_dt_time_obj = None
 local_save_path = None
 workbook_map = None
+threshold_map = None
 current_timestamp = None
 
 def setup_logging():
@@ -926,7 +927,7 @@ def write_data_to_excel(dltstart_timestamps, process_timing_info, sheet, applica
     for position, (process, dltstart_line) in enumerate(dltstart_timestamps.items()):
         # Check if the process names match
        
-        if float(dltstart_line + OFFSET_TIME) < threshold:
+        if float(dltstart_line + OFFSET_TIME) < (threshold_map[process] if process in threshold_map else threshold):
             result = 'PASS'
         else:
             result = 'FAIL'
@@ -3013,6 +3014,8 @@ def start_startup_time_measurement():
     local_save_path.mkdir(parents=True, exist_ok=True)
     global workbook_map
     workbook_map = {}
+    global threshold_map
+    threshold_map = {}
     global current_timestamp
     # current_timestamp = '20250707_123456'
     current_timestamp = cur_dt_time_obj.strftime("%Y%m%d_%H%M%S")
@@ -3038,6 +3041,13 @@ def start_startup_time_measurement():
         if config.get('threshold-in-seconds', -1) < 0 or config.get('threshold-in-seconds') > 100:
             logger.error("Configured 'threshold-in-seconds' is not valid. Configure its value in range[0, 100].")
             return False
+        for i, threshold_config_grp in enumerate(config.get('threshold-config', [])):
+            if threshold_config_grp.get('threshold-in-seconds', -1) < 0 or threshold_config_grp.get('threshold-in-seconds', -1) > 100:
+                logger.error(f"Configured 'threshold-in-seconds' is not valid. Configure its value in range[0, 100] for {i}th group.")
+                return False
+            for app in threshold_config_grp.get('applications', '').split(','):
+                if len(app.strip()) > 0: 
+                    threshold_map[app.strip()] = threshold_config_grp.get('threshold-in-seconds')
        
         # Retrieve the number of iterations from the configuration
         try:
@@ -3058,8 +3068,12 @@ def start_startup_time_measurement():
             logger.error("Error: 'script-execution-time-in-seconds' key not found in the configuration file.")
             return False
        
-        if not isinstance(config.get("power-on-off-delay", 25), int):
-            logger.error("Error: 'power-on-off-delay' must be an integer.")
+        if not isinstance(config.get("power-on-off-delay-in-seconds", 25), int):
+            logger.error("Error: 'power-on-off-delay-in-seconds' must be an integer.")
+            return False
+        
+        if config.get("power-on-off-delay-in-seconds", 25)<=0:
+            logger.error("Error: 'power-on-off-delay-in-seconds' must be greater than 0.")
             return False
 
         process_times_map = {}
@@ -3124,10 +3138,10 @@ def start_startup_time_measurement():
         for i in range(iterations):
            
             if setup_type == ECUType.RCAR.value:
-                if not RCAR_ON_OFF_Relay(config.get('power-on-off-delay', 25)):
+                if not RCAR_ON_OFF_Relay(config.get('power-on-off-delay-in-seconds', 25)):
                     return False
             else:
-                if not power_ON_OFF_Relay(config.get('serial-port-relay'), config.get('baudrate-relay'), config.get('power-on-off-delay', 25)):
+                if not power_ON_OFF_Relay(config.get('serial-port-relay'), config.get('baudrate-relay'), config.get('power-on-off-delay-in-seconds', 25)):
                     return False
            
             threads = []
