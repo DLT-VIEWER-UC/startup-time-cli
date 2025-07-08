@@ -30,7 +30,6 @@ windows:
   # Flag to indicate if the path is set
   isPathSet: false
   # Path to the dlt viewer
-  # dltViewerPath: C:\Users\Testing\AppData\Local\Programs\dlt-viewer\dlt-viewer.exe
   dltViewerPath: C:\Users\Testing\AppData\Local\Programs\dlt-viewer\dlt-viewer.exe
 
 PADAS:
