@@ -948,10 +948,11 @@ def write_data_to_excel(dltstart_timestamps, process_timing_info, sheet, applica
                 data_row.extend([
                     'FAIL',
                     'O' if OrderFailureType.ORDER_MISMATCH.name == OrderFailureType(order_failure_type).name else '',
-                    'O' if OrderFailureType.APPLICATION_NOT_FOUND.name == OrderFailureType(order_failure_type).name else '',
+                    '',
                     'O' if OrderFailureType.APPLICATION_NOT_CONFIGURED.name == OrderFailureType(order_failure_type).name else ''
                 ])
                 application_startup_order_status_iteration[OrderFailureType(order_failure_type).name] += 1
+                application_startup_order_status_iteration['startup_order_status'] = False
             else:
                 data_row.extend(['PASS', '', '', '', ''])
 
@@ -2799,7 +2800,7 @@ def process_log_file(i, ecu_type, setup_type, log_file_details, dlp_file, config
             return False
        
         application_startup_order_status[i] = {
-            'startup_order_status': validate_app_startup_order(dltstart_timestamps, application_startup_order),
+            'startup_order_status': True, #validate_app_startup_order(dltstart_timestamps, application_startup_order),
             OrderFailureType.ORDER_MISMATCH.name: 0,
             OrderFailureType.APPLICATION_NOT_FOUND.name: 0,
             OrderFailureType.APPLICATION_NOT_CONFIGURED.name: 0
