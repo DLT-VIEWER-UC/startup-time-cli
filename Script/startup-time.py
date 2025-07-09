@@ -1749,9 +1749,9 @@ def extract_dltstart_timestamps(lines):
     for line in lines:
         # Check if the line contains the required keywords to indicate a process start event
         #if ':EM: Process' in line and 'Pid:' in line and 'is started' in line:
-        if 'EM' in line and 'is started' in line:
+        if 'Application:' in line and 'Init(Up) Time:' in line:
             # Split the line into parts based on the ':EM: Process' keyword
-            pattern = r'EM.*?\b([^\s]+?)(?=\.0)\.0\b'
+            pattern = r"Application: ([^-\s]+(?:-[^-\s]+)*)"
             m = re.search(pattern, line)
             #parts = line.split(':EM: Process')
            
