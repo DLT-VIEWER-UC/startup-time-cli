@@ -94,11 +94,11 @@ def setup_logging():
 # Define the column names for the application startup time data
 application_startup_time_columns = ['No.', 'Services/Applications', 'Application Startup\n Time (sec)',
                                     'IG ON\n to\n QNX Startup (sec)', 'Total Time\n from\n IG ON (sec)',
-                                    'Startup time\n judgement', 'Expected Order', 'Result of the\n enabled judgement\n item', 'Order\n Mismatch', 'Not\n Found', 'Not\n Configured']
+                                    'Startup Time\n Threshold\n (sec)', 'Startup time\n judgement', 'Expected Order', 'Result of the\n enabled judgement\n item', 'Order\n Mismatch', 'Not\n Found', 'Not\n Configured']
 
 # Define the column names for the application startup time data with minimum, maximum, and average values
 application_startup_time_min_max_avg_columns = ['Services/Applications', 'Minimum (sec)', 'Maximum (sec)',
-                                                'Average (sec)', 'Average\n from\n IG ON (sec)' ]
+                                                'Average (sec)', 'Average\n from\n IG ON (sec)', 'Startup Time\n Threshold\n (sec)']
 
 application_info_columns = ['Services/Applications', 'Init(Up) Time (us)', 'Init(Up) Time (ms)']
 
@@ -933,7 +933,7 @@ def write_data_to_excel(dltstart_timestamps, process_timing_info, sheet, applica
             result = 'FAIL'
         print(">>>", process, process, process_timing_info)
 
-        data_row = [position+1, process, round_decimal_half_up(dltstart_line, 3), OFFSET_TIME, round_decimal_half_up(dltstart_line + OFFSET_TIME, 3), result]
+        data_row = [position+1, process, round_decimal_half_up(dltstart_line, 3), OFFSET_TIME, round_decimal_half_up(dltstart_line + OFFSET_TIME, 3), threshold_map[process] if process in threshold_map else threshold, result]
         print('##',process,validate_startup_order)
 
         if validate_startup_order:
@@ -1255,7 +1255,7 @@ def export_and_plot_average_data_to_excel(sheet, ecu_type, process_times, proces
 
     # Append the sorted data to the Excel sheet
     for data_row in data:
-        sheet.append([data_row['process'], data_row['min_time'], data_row['max_time'], data_row['avg_time'], float(data_row['avg_time']) + OFFSET_TIME])
+        sheet.append([data_row['process'], data_row['min_time'], data_row['max_time'], data_row['avg_time'], float(data_row['avg_time']) + OFFSET_TIME, threshold_map[data_row['process']] if data_row['process'] in threshold_map else config['threshold-in-seconds']])
 
         # Store the average difference in the differences dictionary
         differences[data_row['process']] = float(data_row['avg_time'])
