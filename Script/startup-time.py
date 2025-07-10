@@ -967,7 +967,7 @@ def write_data_to_excel(dltstart_timestamps, process_timing_info, sheet, applica
         for app in order:
             if app not in dltstart_timestamps:
                
-                data_row = ['-', app, '-', '-', '-', '-']
+                data_row = ['-', app, '-', '-', '-', '-', '-']
                
                 if validate_startup_order:
                     expected_order = get_expected_startup_order(app, application_startup_order)
