@@ -978,7 +978,7 @@ def write_data_to_excel(dltstart_timestamps, process_timing_info, sheet, applica
                 sheet.append(data_row)
     if validate_startup_order:
         sheet.append([
-            '', '', '', '', '', '', '', 'Total Count',
+            '', '', '', '', '', '', '', '', 'Total Count',
             application_startup_order_status_iteration[OrderFailureType.ORDER_MISMATCH.name],
             application_startup_order_status_iteration[OrderFailureType.APPLICATION_NOT_FOUND.name], 
             application_startup_order_status_iteration[OrderFailureType.APPLICATION_NOT_CONFIGURED.name]
@@ -1160,7 +1160,7 @@ def each_iteration_test_status(ecu_type, summary_sheet, overall_IG_ON_iteration,
             data_row = [f'=HYPERLINK("#\'GEN3_StartupTime_{(i + 1):02d}\'!A1", "{i + 1}")', overall_value, test_status]
             if config['validate-startup-order'] and i in application_startup_order_status:
                 data_row.extend([
-                    "PASS" if application_startup_order_status[i] else "FAIL",
+                    "PASS" if application_startup_order_status[i]['startup_order_status'] else "FAIL",
                     application_startup_order_status[i][OrderFailureType.ORDER_MISMATCH.name],
                     application_startup_order_status[i][OrderFailureType.APPLICATION_NOT_FOUND.name],
                     application_startup_order_status[i][OrderFailureType.APPLICATION_NOT_CONFIGURED.name]
