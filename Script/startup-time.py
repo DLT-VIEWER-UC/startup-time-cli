@@ -3206,7 +3206,6 @@ def start_startup_time_measurement():
         isSuccess = False
     except Exception as e:
         logger.error(f"An error occurred: {e}")
-        raise e
         isSuccess = False
     finally:
         remove_png_files()
