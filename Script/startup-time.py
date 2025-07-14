@@ -15,7 +15,6 @@ import matplotlib.pyplot as plt
 import ipaddress
 matplotlib.use('Agg')
 import numpy as np
-from multiprocessing import Process
 from openpyxl.drawing.image import Image
 from openpyxl.styles import PatternFill, Border, Side, Alignment, Font
 from openpyxl.utils import get_column_letter
@@ -73,7 +72,7 @@ def setup_logging():
     """
     # Set up colored logging configuration
     LOG_FORMAT = (
-        '%(log_color)s%(asctime)s - %(levelname)s - %(funcName)s - %(lineno)d - %(message)s%(reset)s'
+        '%(log_color)s%(asctime)s - %(levelname)s - %(threadName)s - %(funcName)s - %(lineno)d - %(message)s%(reset)s'
     )
     logging.root.setLevel(logging.INFO)  # Set the root logger level to INFO
 
@@ -699,7 +698,7 @@ def plot_process_startup_time_graph(differences, sheet, start_row, ecu_type, thr
         img = Image(plot_image)
         sheet.add_image(img, f'M{start_row}')
 
-def get_log_file_path(ecu_type, setup_type, iterations, index):
+def get_log_file_path(ecu_type, setup_type, index):
     """
     Generates standardized log file paths and names for ECU startup time testing.
     
@@ -710,7 +709,6 @@ def get_log_file_path(ecu_type, setup_type, iterations, index):
     Args:
         ecu_type (str): Type of ECU being tested (e.g., 'RCAR', 'SoC0', 'SoC1')
         setup_type (str): Test setup configuration type
-        iterations (int): Total number of test iterations (currently unused)
         current_timestamp (str): Timestamp string for file naming (format: YYYYMMDD_HHMMSS)
         index (int): Current iteration index (0-based, converted to 1-based for naming)
         
