@@ -562,7 +562,7 @@ def plot_process_start_end_time_graph(ecu_type, data, sheet, start_row):
         sheet.add_image(img, f'J{start_row}')
 
 
-def plot_process_startup_time_graph(differences, sheet, start_row, ecu_type, threshold, avg_flag):
+def plot_process_startup_time_graph(differences, sheet, start_row, ecu_type, avg_flag):
     """
     Creates and embeds a comprehensive timeline graph showing application startup times from IG ON.
     
@@ -667,9 +667,6 @@ def plot_process_startup_time_graph(differences, sheet, start_row, ecu_type, thr
 
         # Add QNX Startup Time label exactly below OFFSET_TIME sec on x-axis
         plt.text(OFFSET_TIME, -3.0, "QNX Startup", verticalalignment='top', horizontalalignment='center')
-   
-        # Add a vertical line at x=threshold seconds
-        plt.axvline(x=threshold, color='red', linestyle='--', linewidth=2, label=f'{threshold} seconds')
 
         # Add a vertical black line at x=OFFSET_TIME seconds
         plt.axvline(x=OFFSET_TIME, color='black', linestyle='--', linewidth=1)  
@@ -1305,7 +1302,7 @@ def export_and_plot_average_data_to_excel(sheet, ecu_type, process_times, proces
         differences[data_row['process']] = float(data_row['avg_time'])
 
     # Plot the average data as a graph
-    plot_process_startup_time_graph(differences, sheet, start_row, ecu_type, config['threshold-in-seconds'], True)
+    plot_process_startup_time_graph(differences, sheet, start_row, ecu_type, True)
 
     # Format the Excel cells
     format_excel_cells(sheet, start_row)
@@ -1517,7 +1514,7 @@ def generate_apps_startup_report_from_QNX_startup(ecu_type, config, sheet, dltst
     write_data_to_excel(ecu_type, dltstart_timestamps, process_timing_info, sheet, application_startup_order, config.get('threshold-in-seconds'), config.get('validate-startup-order'), application_startup_order_status_iteration, overall_IG_ON_cur_iteration)
 
     # Plot the differences as a graph
-    plot_process_startup_time_graph(dltstart_timestamps, sheet, start_row, ecu_type, config.get('threshold-in-seconds'), False)
+    plot_process_startup_time_graph(dltstart_timestamps, sheet, start_row, ecu_type, False)
 
     # Format the Excel cells
     format_excel_cells(sheet, start_row)
