@@ -2764,8 +2764,8 @@ def process_log_file(i, ecu_type, setup_type, log_file_details, dlp_file, config
     try:
         # Get the log file path and name for the specified ECU type and timestamp
         filename, logfile, dltfile = log_file_details
-        # if not capture_logs_from_dlt_viewer(filename, dltfile, dlp_file, config, ecu_type):
-        #     return False
+        if not capture_logs_from_dlt_viewer(filename, dltfile, dlp_file, config, ecu_type):
+            return False
 
         # Attempt to open the log file in read mode with error handling for encoding issues
         try:
@@ -3009,16 +3009,16 @@ def start_startup_time_measurement():
     global cur_dt_time_obj
     cur_dt_time_obj = datetime.now()
     global local_save_path
-    local_save_path = Path(__file__).parents[1].joinpath("Reports", "03_Startup_Time", "20250630_17-55-00")
-    # local_save_path = Path(__file__).parents[1].joinpath("Reports", "03_Startup_Time", cur_dt_time_obj.strftime("%Y%m%d_%H-%M-%S"))
+    # local_save_path = Path(__file__).parents[1].joinpath("Reports", "03_Startup_Time", "20250630_17-55-00")
+    local_save_path = Path(__file__).parents[1].joinpath("Reports", "03_Startup_Time", cur_dt_time_obj.strftime("%Y%m%d_%H-%M-%S"))
     local_save_path.mkdir(parents=True, exist_ok=True)
     global workbook_map
     workbook_map = {}
     global threshold_map
     threshold_map = {}
     global current_timestamp
-    current_timestamp = '20250630_175500'
-    # current_timestamp = cur_dt_time_obj.strftime("%Y%m%d_%H%M%S")
+    # current_timestamp = '20250630_175500'
+    current_timestamp = cur_dt_time_obj.strftime("%Y%m%d_%H%M%S")
 
 
     script_start_time = time.perf_counter()
@@ -3140,12 +3140,12 @@ def start_startup_time_measurement():
         # Loop through the iterations
         for i in range(iterations):
            
-            # if setup_type == ECUType.RCAR.value:
-            #     if not RCAR_ON_OFF_Relay(config.get('power-on-off-delay-in-seconds', 25)):
-            #         return False
-            # else:
-            #     if not power_ON_OFF_Relay(config.get('serial-port-relay'), config.get('baudrate-relay'), config.get('power-on-off-delay-in-seconds', 25)):
-            #         return False
+            if setup_type == ECUType.RCAR.value:
+                if not RCAR_ON_OFF_Relay(config.get('power-on-off-delay-in-seconds', 25)):
+                    return False
+            else:
+                if not power_ON_OFF_Relay(config.get('serial-port-relay'), config.get('baudrate-relay'), config.get('power-on-off-delay-in-seconds', 25)):
+                    return False
            
             threads = []
             for ecu_type, (report_file, workbook, sheets, summary_sheet) in workbook_map.items():

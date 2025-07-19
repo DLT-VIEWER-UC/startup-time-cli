@@ -8,7 +8,7 @@ power-on-off-delay-in-seconds: 25
 iterations: 3
 
 # Threshold value for application that starts within 5 seconds
-threshold-in-seconds: 10
+threshold-in-seconds: 5
 
 # Serial port for the relay
 serial-port-relay: COM5
