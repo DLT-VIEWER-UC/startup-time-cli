@@ -53,6 +53,7 @@ workbook_map = None
 threshold_map = None
 current_timestamp = None
 capture_logs = None
+table_headers = None
 
 def setup_logging():
     """
@@ -108,7 +109,6 @@ application_start_end_time_min_max_avg_columns = ['Services/Applications', 'Mini
 applications_overall_status_columns = ['No. of Iterations', 'Total Time\n to Startup\n Last Application\n from IG ON (sec)',
                                         'Startup time\n judgement', 'Result of the\n enabled judgement\n item', 'Order\n Mismatch\n Count', 'Not\n Found\n Count', 'Not\n Configured\n Count']
 
-other_columns = ['Total Count']
 appendix_columns = ['Column Name', 'Description']
 startup_field_descriptions = [
    ("Services/Applications", "Name of the Service/Application being initialized."),
@@ -275,18 +275,7 @@ def adjust_column_width(sheet, ecu_type):
                     continue
                
                 # Skip cells with specific content
-                if f'Startup_Time_Logs_{ecu_type}' in str(cell.value):
-                    continue
-
-                # Check if the cell is part of a merged cell
-                is_merged = False
-                for merged_cell in sheet.merged_cells.ranges:
-                    if cell.coordinate in merged_cell:
-                        is_merged = True
-                        break
-
-                # If the cell is part of a merged cell, skip it
-                if is_merged:
+                if f'Startup_Time_Logs_{ecu_type}' in str(cell.value)  or str(cell.value) in table_headers:
                     continue
 
                 # Attempt to retrieve the content of the cell and check its length
@@ -354,7 +343,7 @@ def format_excel_cells(sheet, start_row):
             # Check if the cell value is a column header
             if cell.value in (application_startup_time_columns + application_startup_time_min_max_avg_columns
                               + application_info_columns + application_start_end_time_min_max_avg_columns +
-                              applications_overall_status_columns + other_columns):
+                              applications_overall_status_columns):
                
                 # Apply a green fill color and bold font to column headers
                 cell.fill = PatternFill(start_color="B5E6A2", end_color="B5E6A2", fill_type="solid")
@@ -699,7 +688,7 @@ def plot_process_startup_time_graph(differences, sheet, start_row, ecu_type, thr
 
         # Add the plot to the Excel sheet
         img = Image(plot_image)
-        sheet.add_image(img, f'M{start_row}')
+        sheet.add_image(img, f'N{start_row}')
 
 def get_log_file_path(ecu_type, setup_type, index):
     """
@@ -953,6 +942,11 @@ def write_data_to_excel(ecu_type, dltstart_timestamps, process_timing_info, shee
         This function is central to the reporting system and provides the detailed
         data that feeds into summary reports and visualizations.
     """
+
+    startup_order_count_idx = sheet.max_row + 1
+    if validate_startup_order:
+        sheet.append(['', '', '', '', '', '', '', '', '', 0, 0, 0])
+        
     start_row = sheet.max_row + 1
 
     # Iterate over the DLTStart timestamps and differences in parallel using zip
@@ -1010,12 +1004,31 @@ def write_data_to_excel(ecu_type, dltstart_timestamps, process_timing_info, shee
                     application_startup_order_status_iteration[OrderFailureType.APPLICATION_NOT_FOUND.name] += 1
                 sheet.append(data_row)
     if validate_startup_order:
-        sheet.append([
-            '', '', '', '', '', '', '', '', 'Total Count',
+        # Update the last three cells of the row at startup_order_count_idx with the current counts and highlight in yellow
+        yellow_fill = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
+        counts = [
             application_startup_order_status_iteration[OrderFailureType.ORDER_MISMATCH.name],
-            application_startup_order_status_iteration[OrderFailureType.APPLICATION_NOT_FOUND.name], 
+            application_startup_order_status_iteration[OrderFailureType.APPLICATION_NOT_FOUND.name],
             application_startup_order_status_iteration[OrderFailureType.APPLICATION_NOT_CONFIGURED.name]
-        ])
+        ]
+        # Merge cells from column 1 to 9 in the current row with the above row
+        for col in range(1, 10):
+            sheet.merge_cells(
+            start_row=startup_order_count_idx - 1,
+            start_column=col,
+            end_row=startup_order_count_idx,
+            end_column=col
+            )
+        for offset, count in enumerate(counts, start=10):
+            cell = sheet.cell(row=startup_order_count_idx, column=offset)
+            cell.value = count
+            cell.fill = yellow_fill
+            cell.border = border_style
+        # Ensure all cells in the merged range have borders
+        for col in range(1, 10):
+            for row in range(startup_order_count_idx - 1, startup_order_count_idx + 1):
+                cell = sheet.cell(row=row, column=col)
+                cell.border = border_style
     # Apply the border style to the entire merged range
     for row in sheet[merged_range]:
         for cell in row:
@@ -1100,6 +1113,7 @@ def create_header(sheet, ecu_type, validate_startup_order, app_columns):
     elif app_columns == 'startup_appendix':
        header = f'Field Description for \n Services/Applications Startup Completion Time on {ecu_type}'
        columns = appendix_columns
+    table_headers.append(header)
     # Append the header text to the sheet
     sheet.append([header])
 
@@ -3048,6 +3062,8 @@ def start_startup_time_measurement():
     global cur_dt_time_obj
     cur_dt_time_obj = datetime.now()
     global capture_logs
+    global table_headers
+    table_headers = list()
     global local_save_path
     global workbook_map
     workbook_map = {}
