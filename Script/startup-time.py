@@ -874,7 +874,7 @@ def get_expected_startup_order(application_name, application_startup_order):
  
 
 
-def write_data_to_excel(dltstart_timestamps, process_timing_info, sheet, application_startup_order, threshold, validate_startup_order, application_startup_order_status_iteration):
+def write_data_to_excel(ecu_type, dltstart_timestamps, process_timing_info, sheet, application_startup_order, threshold, validate_startup_order, application_startup_order_status_iteration, overall_IG_ON_cur_iteration):
     """
     Writes application startup timing data to Excel worksheet with comprehensive validation.
     
@@ -925,13 +925,14 @@ def write_data_to_excel(dltstart_timestamps, process_timing_info, sheet, applica
     for position, (process, dltstart_line) in enumerate(dltstart_timestamps.items()):
         # Check if the process names match
        
-        if float(dltstart_line + OFFSET_TIME) < (threshold_map[process] if process in threshold_map else threshold):
+        if float(dltstart_line + OFFSET_TIME) < (threshold_map[ecu_type][process] if process in threshold_map[ecu_type] else threshold):
             result = 'PASS'
         else:
             result = 'FAIL'
+            overall_IG_ON_cur_iteration['status'] = False
         print(">>>", process, process, process_timing_info)
 
-        data_row = [position+1, process, round_decimal_half_up(dltstart_line, 3), OFFSET_TIME, round_decimal_half_up(dltstart_line + OFFSET_TIME, 3), threshold_map[process] if process in threshold_map else threshold, result]
+        data_row = [position+1, process, round_decimal_half_up(dltstart_line, 3), OFFSET_TIME, round_decimal_half_up(dltstart_line + OFFSET_TIME, 3), threshold_map[ecu_type][process] if process in threshold_map[ecu_type] else threshold, result]
         print('##',process,validate_startup_order)
 
         if validate_startup_order:
@@ -1150,11 +1151,8 @@ def each_iteration_test_status(ecu_type, summary_sheet, overall_IG_ON_iteration,
     start_row = create_header(summary_sheet, ecu_type, config['validate-startup-order'], 'overall_test_columns')
     for i in range(config['iterations']):
         if i in overall_IG_ON_iteration:
-            overall_value = overall_IG_ON_iteration[i] + OFFSET_TIME
-            if overall_value > 5:
-                test_status = 'FAIL'
-            else:
-                test_status = 'PASS'
+            overall_value = overall_IG_ON_iteration[i]['timestamp'] + OFFSET_TIME
+            test_status = 'PASS' if overall_IG_ON_iteration[i]['status'] else 'FAIL'
             data_row = [f'=HYPERLINK("#\'GEN3_StartupTime_{(i + 1):02d}\'!A1", "{i + 1}")', overall_value, test_status]
             if config['validate-startup-order'] and i in application_startup_order_status:
                 data_row.extend([
@@ -1253,7 +1251,7 @@ def export_and_plot_average_data_to_excel(sheet, ecu_type, process_times, proces
 
     # Append the sorted data to the Excel sheet
     for data_row in data:
-        sheet.append([data_row['process'], data_row['min_time'], data_row['max_time'], data_row['avg_time'], float(data_row['avg_time']) + OFFSET_TIME, threshold_map[data_row['process']] if data_row['process'] in threshold_map else config['threshold-in-seconds']])
+        sheet.append([data_row['process'], data_row['min_time'], data_row['max_time'], data_row['avg_time'], float(data_row['avg_time']) + OFFSET_TIME, threshold_map[ecu_type][data_row['process']] if data_row['process'] in threshold_map[ecu_type] else config['threshold-in-seconds']])
 
         # Store the average difference in the differences dictionary
         differences[data_row['process']] = float(data_row['avg_time'])
@@ -1415,7 +1413,7 @@ def generate_apps_start_end_time_report(ecu_type, sheet, process_timing_info, co
     format_excel_cells(sheet, start_row)
 
 
-def generate_apps_startup_report_from_QNX_startup(ecu_type, config, sheet, dltstart_timestamps,  process_timing_info, application_startup_order, application_startup_order_status_iteration):
+def generate_apps_startup_report_from_QNX_startup(ecu_type, config, sheet, dltstart_timestamps,  process_timing_info, application_startup_order, application_startup_order_status_iteration, overall_IG_ON_cur_iteration):
     """
     Generates a comprehensive startup time analysis report for a single test iteration.
     
@@ -1468,7 +1466,7 @@ def generate_apps_startup_report_from_QNX_startup(ecu_type, config, sheet, dltst
     start_row = create_header(sheet, ecu_type, config['validate-startup-order'], 'startup_time_columns')
 
     # Write the data to the Excel sheet
-    write_data_to_excel(dltstart_timestamps, process_timing_info, sheet, application_startup_order, config.get('threshold-in-seconds'), config.get('validate-startup-order'), application_startup_order_status_iteration)
+    write_data_to_excel(ecu_type, dltstart_timestamps, process_timing_info, sheet, application_startup_order, config.get('threshold-in-seconds'), config.get('validate-startup-order'), application_startup_order_status_iteration, overall_IG_ON_cur_iteration)
 
     # Plot the differences as a graph
     plot_process_startup_time_graph(dltstart_timestamps, sheet, start_row, ecu_type, config.get('threshold-in-seconds'), False)
@@ -2766,8 +2764,8 @@ def process_log_file(i, ecu_type, setup_type, log_file_details, dlp_file, config
     try:
         # Get the log file path and name for the specified ECU type and timestamp
         filename, logfile, dltfile = log_file_details
-        if not capture_logs_from_dlt_viewer(filename, dltfile, dlp_file, config, ecu_type):
-            return False
+        # if not capture_logs_from_dlt_viewer(filename, dltfile, dlp_file, config, ecu_type):
+        #     return False
 
         # Attempt to open the log file in read mode with error handling for encoding issues
         try:
@@ -2836,10 +2834,13 @@ def process_log_file(i, ecu_type, setup_type, log_file_details, dlp_file, config
             # Append the difference to the process's list of times
             process_times[process].append(process_time)
        
-        overall_IG_ON_iteration[i] = max(dltstart_timestamps.values())
+        overall_IG_ON_iteration[i] = {
+            'timestamp': max(dltstart_timestamps.values()),
+            'status': True,
+        }
         print ("overall_IG_ON_iteration:"+str(overall_IG_ON_iteration))
 
-        generate_apps_startup_report_from_QNX_startup(ecu_type, config, sheet, dltstart_timestamps, process_timing_info, application_startup_order, application_startup_order_status[i])
+        generate_apps_startup_report_from_QNX_startup(ecu_type, config, sheet, dltstart_timestamps, process_timing_info, application_startup_order, application_startup_order_status[i], overall_IG_ON_iteration[i])
        
         # Add a hyperlink to the log file in the Excel sheet
         add_logfile_hyperlink(filename, logfile, sheet, ecu_type, setup_type)
@@ -3008,16 +3009,16 @@ def start_startup_time_measurement():
     global cur_dt_time_obj
     cur_dt_time_obj = datetime.now()
     global local_save_path
-    # local_save_path = Path(__file__).parents[1].joinpath("Reports", "03_Startup_Time", "20250707_12-34-56")
-    local_save_path = Path(__file__).parents[1].joinpath("Reports", "03_Startup_Time", cur_dt_time_obj.strftime("%Y%m%d_%H-%M-%S"))
+    local_save_path = Path(__file__).parents[1].joinpath("Reports", "03_Startup_Time", "20250630_17-55-00")
+    # local_save_path = Path(__file__).parents[1].joinpath("Reports", "03_Startup_Time", cur_dt_time_obj.strftime("%Y%m%d_%H-%M-%S"))
     local_save_path.mkdir(parents=True, exist_ok=True)
     global workbook_map
     workbook_map = {}
     global threshold_map
     threshold_map = {}
     global current_timestamp
-    # current_timestamp = '20250707_123456'
-    current_timestamp = cur_dt_time_obj.strftime("%Y%m%d_%H%M%S")
+    current_timestamp = '20250630_175500'
+    # current_timestamp = cur_dt_time_obj.strftime("%Y%m%d_%H%M%S")
 
 
     script_start_time = time.perf_counter()
@@ -3040,13 +3041,6 @@ def start_startup_time_measurement():
         if config.get('threshold-in-seconds', -1) < 0 or config.get('threshold-in-seconds') > 100:
             logger.error("Configured 'threshold-in-seconds' is not valid. Configure its value in range[0, 100].")
             return False
-        for i, threshold_config_grp in enumerate(config.get('threshold-config', [])):
-            if threshold_config_grp.get('threshold-in-seconds', -1) < 0 or threshold_config_grp.get('threshold-in-seconds', -1) > 100:
-                logger.error(f"Configured 'threshold-in-seconds' is not valid. Configure its value in range[0, 100] for {i}th group.")
-                return False
-            for app in threshold_config_grp.get('applications', '').split(','):
-                if len(app.strip()) > 0: 
-                    threshold_map[app.strip()] = threshold_config_grp.get('threshold-in-seconds')
        
         # Retrieve the number of iterations from the configuration
         try:
@@ -3083,11 +3077,11 @@ def start_startup_time_measurement():
         setup_type = None
         enabled_ecu_list = set()
                
-        if config.get('PADAS', {}).get('RCAR', False):
+        if config.get('ECU_setting', {}).get('PADAS', {}).get('RCAR', False):
             enabled_ecu_list.add('RCAR')
             setup_type = 'PADAS'
         else:
-            for board_type, enabled in config.get('Elite', {}).items():
+            for board_type, enabled in config.get('ECU_setting', {}).get('Elite', {}).items():
                 if enabled:
                     enabled_ecu_list.add(board_type)
                     setup_type = 'ELITE'
@@ -3119,7 +3113,17 @@ def start_startup_time_measurement():
             for block in ecu['startup-order']:
                 application_startup_order.append(tuple([block['type'], [app.strip() for app in block['apps'].split(',')]]))
             application_startup_order_map[ecu['ecu-type']] = list(application_startup_order)
+            
+            threshold_map[ecu['ecu-type']] = {}
+            for i, threshold_config_grp in enumerate(ecu.get('threshold-config', [])):
+                if threshold_config_grp.get('threshold-in-seconds', -1) < 0 or threshold_config_grp.get('threshold-in-seconds', -1) > 100:
+                    logger.error(f"Configured 'threshold-in-seconds' is not valid. Configure its value in range[0, 100] for {i}th group in {ecu['ecu-type']}.")
+                    return False
+                for app in threshold_config_grp.get('application-group', '').split(','):
+                    if len(app.strip()) > 0: 
+                        threshold_map[ecu['ecu-type']][app.strip()] = threshold_config_grp.get('threshold-in-seconds')
              
+        logger.info(f"Threshold Map: {threshold_map}")
         # Create the Logs directory path
         logs_folder = local_save_path / "Logs"      
 
@@ -3136,12 +3140,12 @@ def start_startup_time_measurement():
         # Loop through the iterations
         for i in range(iterations):
            
-            if setup_type == ECUType.RCAR.value:
-                if not RCAR_ON_OFF_Relay(config.get('power-on-off-delay-in-seconds', 25)):
-                    return False
-            else:
-                if not power_ON_OFF_Relay(config.get('serial-port-relay'), config.get('baudrate-relay'), config.get('power-on-off-delay-in-seconds', 25)):
-                    return False
+            # if setup_type == ECUType.RCAR.value:
+            #     if not RCAR_ON_OFF_Relay(config.get('power-on-off-delay-in-seconds', 25)):
+            #         return False
+            # else:
+            #     if not power_ON_OFF_Relay(config.get('serial-port-relay'), config.get('baudrate-relay'), config.get('power-on-off-delay-in-seconds', 25)):
+            #         return False
            
             threads = []
             for ecu_type, (report_file, workbook, sheets, summary_sheet) in workbook_map.items():
