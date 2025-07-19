@@ -26,6 +26,10 @@ windows:
   # Path to the dlt viewer
   dltViewerPath: C:\Users\nanib\AppData\Local\Programs\dlt-viewer\dlt-viewer.exe
 
+# Capture logs from DLT viewer
+capture-logs-from-dlt-viewer: false
+logs-folder-path: E:\DLT_VIEWER_UC\startup-time-cli\Reports\03_Startup_Time\External_logs_001
+
 # ECU settings
 ECU_setting:
   PADAS:

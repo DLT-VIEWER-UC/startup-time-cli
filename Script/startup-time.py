@@ -52,6 +52,7 @@ local_save_path = None
 workbook_map = None
 threshold_map = None
 current_timestamp = None
+capture_logs = None
 
 def setup_logging():
     """
@@ -751,6 +752,37 @@ def get_log_file_path(ecu_type, setup_type, index):
 
     # Return the log file path and name
     return filename, logfile, dltfile
+
+def find_log_files_with_keywords(folder_path, keywords):
+    """
+    Returns a list of .log files in folder_path whose filenames contain any of the keywords.
+    """
+    if not folder_path.exists():
+        logger.warning(f"Directory {folder_path} does not exist.")
+        return []
+    log_files = glob.glob(os.path.join(folder_path, "*.log"))
+    filtered_files = [
+        f for f in log_files
+        if all(keyword.lower() in os.path.basename(f).lower() for keyword in keywords)
+    ]
+    return filtered_files
+
+def extract_log_file_paths(index, ecu_type, setup_type):
+    parent_dir = local_save_path / "Logs"
+    keywords = [ecu_type, setup_type, f'N{index + 1}']
+    if setup_type == ECUType.ELITE.value:
+        filtered_files = find_log_files_with_keywords(parent_dir / ecu_type, keywords)
+    elif setup_type == ECUType.PADAS.value:
+        filtered_files = find_log_files_with_keywords(parent_dir, keywords)
+    if not filtered_files or len(filtered_files) == 0:
+        logger.warning(f"No log files found for {ecu_type} with setup type {setup_type} and index {index + 1}.")
+        if setup_type == ECUType.ELITE.value:
+            return tuple((parent_dir / ecu_type / f'{ecu_type}_{setup_type}_N{index + 1}.log', None, None))
+        else:
+            return tuple((parent_dir / f'{ecu_type}_{setup_type}_N{index + 1}.log', None, None))
+    else:
+        log_file_path = filtered_files.pop()
+        return tuple((log_file_path, os.path.basename(log_file_path), None))
 
 def get_log_file_paths_for_elite(index, ecu_config_list, setup_type):    
     """
@@ -2576,6 +2608,10 @@ def create_dlp_files(ecu_config_list, setup_type, config):
     script_dir = os.path.dirname(os.path.abspath(__file__))
     output_dir_path = os.path.join(script_dir, output_dir)
     dlp_files = {}
+    if not capture_logs:
+        for ecu in ecu_config_list:
+            dlp_files[ecu['ecu-type']] = None
+        return dlp_files
     # Create output directory if it doesn't exist or clear it if it does
     if os.path.exists(output_dir_path):
         # Clear all files in the directory
@@ -2764,8 +2800,9 @@ def process_log_file(i, ecu_type, setup_type, log_file_details, dlp_file, config
     try:
         # Get the log file path and name for the specified ECU type and timestamp
         filename, logfile, dltfile = log_file_details
-        if not capture_logs_from_dlt_viewer(filename, dltfile, dlp_file, config, ecu_type):
-            return False
+        if capture_logs:
+            if not capture_logs_from_dlt_viewer(filename, dltfile, dlp_file, config, ecu_type):
+                return False
 
         # Attempt to open the log file in read mode with error handling for encoding issues
         try:
@@ -3008,10 +3045,8 @@ def start_startup_time_measurement():
     # Declare global variables
     global cur_dt_time_obj
     cur_dt_time_obj = datetime.now()
+    global capture_logs
     global local_save_path
-    # local_save_path = Path(__file__).parents[1].joinpath("Reports", "03_Startup_Time", "20250630_17-55-00")
-    local_save_path = Path(__file__).parents[1].joinpath("Reports", "03_Startup_Time", cur_dt_time_obj.strftime("%Y%m%d_%H-%M-%S"))
-    local_save_path.mkdir(parents=True, exist_ok=True)
     global workbook_map
     workbook_map = {}
     global threshold_map
@@ -3034,8 +3069,20 @@ def start_startup_time_measurement():
         if config is None:
             logger.error(f"File 'config_file_path' not found.")
             return False
+        
+        capture_logs = config.get('capture-logs-from-dlt-viewer', False)
+        if capture_logs:
+            local_save_path = Path(__file__).parents[1].joinpath("Reports", "03_Startup_Time", cur_dt_time_obj.strftime("%Y%m%d_%H-%M-%S"))
+            local_save_path.mkdir(parents=True, exist_ok=True)
+        else:
+            logs_folder_path = config.get('logs-folder-path', None)
+            logger.info(f"logs_folder_path: {logs_folder_path}")
+            if not logs_folder_path or not os.path.exists(str(logs_folder_path)):
+                logger.error("Error: 'logs-folder-path' is not configured in the configuration file.")
+                return False
+            local_save_path = Path(logs_folder_path)
        
-        if config['windows']['dltViewerPath'] and not os.path.isfile(config['windows']['dltViewerPath']):
+        if capture_logs and config['windows']['dltViewerPath'] and not os.path.isfile(config['windows']['dltViewerPath']):
             logger.error("Configured dlt-viewer path is not valid.")
             return False
         if config.get('threshold-in-seconds', -1) < 0 or config.get('threshold-in-seconds') > 100:
@@ -3052,20 +3099,16 @@ def start_startup_time_measurement():
             logger.error("Error: 'iterations' key not found in the configuration file.")
             return False
        
-        try:
-            duration = config["script-execution-time-in-seconds"]
-            if not isinstance(duration, int):
-                logger.error("Error: 'script-execution-time-in-seconds' must be an integer.")
-                return False
-        except KeyError:
-            logger.error("Error: 'script-execution-time-in-seconds' key not found in the configuration file.")
+        duration = config["script-execution-time-in-seconds"]
+        if capture_logs and not isinstance(duration, int):
+            logger.error("Error: 'script-execution-time-in-seconds' must be an integer.")
             return False
        
-        if not isinstance(config.get("power-on-off-delay-in-seconds", 25), int):
+        if capture_logs and not isinstance(config.get("power-on-off-delay-in-seconds", 25), int):
             logger.error("Error: 'power-on-off-delay-in-seconds' must be an integer.")
             return False
         
-        if config.get("power-on-off-delay-in-seconds", 25)<=0:
+        if capture_logs and config.get("power-on-off-delay-in-seconds", 25)<=0:
             logger.error("Error: 'power-on-off-delay-in-seconds' must be greater than 0.")
             return False
 
@@ -3093,12 +3136,13 @@ def start_startup_time_measurement():
 
         ecu_config_list = [ecu for ecu in config['ecu-config'] if ecu['ecu-type'] in enabled_ecu_list]
         for ecu in ecu_config_list:
-            if ecu['ecu-type'] == ECUType.RCAR.value:
-                ecu['ip-address'] = config['ECU_setting']['RCAR_IPAddress']
-            elif ecu['ecu-type'] == ECUType.SoC0.value:
-                ecu['ip-address'] = config['ECU_setting']['Qualcomm_SoC0_IPAddress']
-            elif ecu['ecu-type'] == ECUType.SoC1.value:
-                ecu['ip-address'] = config['ECU_setting']['Qualcomm_SoC1_IPAddress']
+            if capture_logs:
+                if ecu['ecu-type'] == ECUType.RCAR.value:
+                    ecu['ip-address'] = config['ECU_setting']['RCAR_IPAddress']
+                elif ecu['ecu-type'] == ECUType.SoC0.value:
+                    ecu['ip-address'] = config['ECU_setting']['Qualcomm_SoC0_IPAddress']
+                elif ecu['ecu-type'] == ECUType.SoC1.value:
+                    ecu['ip-address'] = config['ECU_setting']['Qualcomm_SoC1_IPAddress']
             workbook_map[ecu['ecu-type']] = tuple(create_workBook(ecu['ecu-type'], setup_type, iterations, config))
            
             # Check if the workbook creation was successful
@@ -3124,40 +3168,43 @@ def start_startup_time_measurement():
                         threshold_map[ecu['ecu-type']][app.strip()] = threshold_config_grp.get('threshold-in-seconds')
              
         logger.info(f"Threshold Map: {threshold_map}")
-        # Create the Logs directory path
-        logs_folder = local_save_path / "Logs"      
-
-        # Get a list of log files in the folder, sorted by last modified time
-        log_files = sorted(glob.glob(os.path.join(logs_folder, '*.log')), key=os.path.getmtime)
 
         # if config['ecu-config']['setup-type'] == ECUType.ELITE.value:
-        if not validate_ip_address(ecu_config_list):
+        if capture_logs and not validate_ip_address(ecu_config_list):
             return False
         dlp_files = create_dlp_files(ecu_config_list, setup_type, config)
-        if not dlp_files and len(dlp_files)==0:
+        if capture_logs and not dlp_files and len(dlp_files)==0:
             return False
 
         # Loop through the iterations
         for i in range(iterations):
-           
-            if setup_type == ECUType.RCAR.value:
-                if not RCAR_ON_OFF_Relay(config.get('power-on-off-delay-in-seconds', 25)):
-                    return False
-            else:
-                if not power_ON_OFF_Relay(config.get('serial-port-relay'), config.get('baudrate-relay'), config.get('power-on-off-delay-in-seconds', 25)):
-                    return False
+            
+            if capture_logs:
+                if setup_type == ECUType.RCAR.value:
+                    if not RCAR_ON_OFF_Relay(config.get('power-on-off-delay-in-seconds', 25)):
+                        return False
+                else:
+                    if not power_ON_OFF_Relay(config.get('serial-port-relay'), config.get('baudrate-relay'), config.get('power-on-off-delay-in-seconds', 25)):
+                        return False
            
             threads = []
             for ecu_type, (report_file, workbook, sheets, summary_sheet) in workbook_map.items():
                 print("Thread: ", ecu_type, ": Started")
                
                 filename_list = {}
-                if setup_type == ECUType.ELITE.value:
-                    filename_list = get_log_file_paths_for_elite(i, ecu_config_list, setup_type)
+                if capture_logs:
+                    if setup_type == ECUType.ELITE.value:
+                        filename_list = get_log_file_paths_for_elite(i, ecu_config_list, setup_type)
+                    else:
+                        filename_list[ecu_type] = tuple(get_log_file_path(ecu_type, setup_type, iterations, i))
                 else:
-                    filename_list[ecu_type] = tuple(get_log_file_path(ecu_type, setup_type, iterations, i))
+                    filename_list[ecu_type] = extract_log_file_paths(i, ecu_type, setup_type)
+                logger.info(f"Log files for {ecu_type} in iteration {i}: {filename_list}")
                 if any(not filename for (filename, logfile, dltfile) in filename_list.values()):
-                    logger.error("Log file not created")
+                    if capture_logs:
+                        logger.error(f"Log file not created for {ecu_type} in iteration {i}. Please check the configuration.")
+                    else:
+                        logger.error(f"Log file not found for {ecu_type} in iteration {i}. Please check the configuration.")
                     return False
                 thread = ResultThread(
                     target=process_log_file,
