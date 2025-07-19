@@ -289,16 +289,16 @@ def adjust_column_width(sheet, ecu_type):
                 if is_merged:
                     continue
 
-                # Check if the cell's alignment has wrap text enabled
-                if cell.alignment.wrap_text:
-                    continue
-
                 # Attempt to retrieve the content of the cell and check its length
                 cell_content = str(cell.value)
-
-                # Update max_length if the current cell content is longer
-                if len(cell_content) > max_length:
-                    max_length = len(cell_content)
+                
+                # Check if the cell's alignment has wrap text enabled
+                if cell.alignment.wrap_text:
+                    lines = cell_content.split('\n')
+                    max_length = max(max(len(line) for line in lines), max_length)
+                else:
+                    # If wrap text is not enabled, use the length of the cell content directly
+                    max_length = max(len(cell_content), max_length)
 
             except (TypeError, AttributeError, ValueError) as e:
                 # Handle specific exceptions
@@ -369,6 +369,8 @@ def format_excel_cells(sheet, start_row):
             elif cell.value == "FAIL":
                 # If the cell value is "FAIL", fill it with a light red color.
                 cell.fill = PatternFill(start_color = "FF0000", end_color = "FF0000", fill_type = "solid")
+            elif cell.value == '•':
+                cell.font = Font(bold=True)
                
             # Center align the cell contents horizontally and vertically
             cell.alignment = Alignment(horizontal='center', vertical='center')
@@ -978,9 +980,9 @@ def write_data_to_excel(ecu_type, dltstart_timestamps, process_timing_info, shee
             if order_failure_type != 0:
                 data_row.extend([
                     'FAIL',
-                    'O' if OrderFailureType.ORDER_MISMATCH.name == OrderFailureType(order_failure_type).name else '',
+                    '•' if OrderFailureType.ORDER_MISMATCH.name == OrderFailureType(order_failure_type).name else '',
                     '',
-                    'O' if OrderFailureType.APPLICATION_NOT_CONFIGURED.name == OrderFailureType(order_failure_type).name else ''
+                    '•' if OrderFailureType.APPLICATION_NOT_CONFIGURED.name == OrderFailureType(order_failure_type).name else ''
                 ])
                 application_startup_order_status_iteration[OrderFailureType(order_failure_type).name] += 1
                 application_startup_order_status_iteration['startup_order_status'] = False
@@ -1004,7 +1006,7 @@ def write_data_to_excel(ecu_type, dltstart_timestamps, process_timing_info, shee
                     expected_order = get_expected_startup_order(app, application_startup_order)
                     if not expected_order:
                         expected_order='-'
-                    data_row.extend([str(expected_order), 'FAIL', '', 'O', ''])
+                    data_row.extend([str(expected_order), 'FAIL', '', '•', ''])
                     application_startup_order_status_iteration[OrderFailureType.APPLICATION_NOT_FOUND.name] += 1
                 sheet.append(data_row)
     if validate_startup_order:
