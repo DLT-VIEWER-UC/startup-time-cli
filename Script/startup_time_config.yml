@@ -1,6 +1,9 @@
 # Duration of the test in seconds
 script-execution-time-in-seconds: 70
 
+# Set this value to the time until ECU is completely in the IG OFF state
+power-on-off-delay-in-seconds: 25
+
 # Number of iterations to run the test
 iterations: 3
 
@@ -19,24 +22,35 @@ validate-startup-order: true
 # Windows-specific settings
 windows:
   # Flag to indicate if the path is set
-  isPathSet: false
+  isPathSet: true
   # Path to the dlt viewer
-  # dltViewerPath: C:\Users\Testing\AppData\Local\Programs\dlt-viewer\dlt-viewer.exe
-  dltViewerPath: C:\Users\Testing\AppData\Local\Programs\dlt-viewer\dlt-viewer.exe
+  dltViewerPath: C:\Users\nanib\AppData\Local\Programs\dlt-viewer\dlt-viewer.exe
 
-PADAS:
-  RCAR: false
-Elite:
-  RCAR: true
-  SoC0: true
-  SoC1: true
+# Capture logs from DLT viewer
+capture-logs-from-dlt-viewer: false
+logs-folder-path: E:\DLT_VIEWER_UC\startup-time-cli\Reports\03_Startup_Time\External_logs_001
+
+# ECU settings
 ECU_setting:
+  PADAS:
+    RCAR: false
+  Elite:
+    RCAR: true
+    SoC0: true
+    SoC1: true
   RCAR_IPAddress: 192.168.1.33
   Qualcomm_SoC0_IPAddress: 192.168.1.3
   Qualcomm_SoC1_IPAddress: 192.168.1.58
 
 ecu-config:
   - ecu-type: "RCAR"
+    threshold-config:
+      - application-group: "crypto_keystorage_manager,access_manager,healthmanager,aradltdaemon,araipcd"
+        threshold-in-seconds: 5
+      - application-group: "arasomeipd,statemanager,DiagnosticManager,functiongroupmanager,AHdf"
+        threshold-in-seconds: 5
+      - application-group: "Test_App_1_C10, Test_App_2_C10, Test_App_3_C10"
+        threshold-in-seconds: 3
     startup-order:
       - type: Sequential
         apps: " crypto_keystorage_manager,access_manager, healthmanager,aradltdaemon,araipcd"
@@ -49,6 +63,13 @@ ecu-config:
       - type: Sequential
         apps: "h_diag_app,diag-default-services-app,packagemanager"
   - ecu-type: "SoC0"
+    threshold-config:
+      - application-group: "crypto_keystorage_manager,access_manager,healthmanager,aradltdaemon,araipcd"
+        threshold-in-seconds: 8
+      - application-group: "arasomeipd,statemanager,DiagnosticManager,functiongroupmanager,AHdf"
+        threshold-in-seconds: 5
+      - application-group: "Test_App_1_C10, Test_App_2_C10, Test_App_3_C10"
+        threshold-in-seconds: 4
     startup-order:
       - type: Sequential
         apps: " aradltdaemon, healthmanager, crypto_keystorage_manager, access_manager, arasomeipd, araipcd, DiagnosticManager, statemanager, functiongroupmanager"
@@ -57,6 +78,13 @@ ecu-config:
       - type: Sequential
         apps: "ADAS_ACore_HADI_RAD_Process, ADAS_ACore_HADI_VI_T10_Process, adf-app-tsr, adf-app-tli,adf-app-ahbadb,  SDmap,GNSS, h-diag-eq-app, h-diag-app, diag-master-app, probe_app, packagemanager, diag-default-services-app"
   - ecu-type: "SoC1"
+    threshold-config:
+      - application-group: "crypto_keystorage_manager,access_manager,healthmanager,aradltdaemon,araipcd"
+        threshold-in-seconds: 9
+      - application-group: "arasomeipd,statemanager,DiagnosticManager,functiongroupmanager,AHdf"
+        threshold-in-seconds: 5
+      - application-group: "Test_App_1_C10, Test_App_2_C10, Test_App_3_C10"
+        threshold-in-seconds: 6
     startup-order:
       - type: Sequential
         apps: " aradltdaemon, healthmanager, crypto_keystorage_manager, access_manager, arasomeipd, araipcd, DiagnosticManager, statemanager, functiongroupmanager"
